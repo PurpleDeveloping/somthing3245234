@@ -87,9 +87,14 @@
     }, 7000);
   };
 
-  /* ---------- Cookie consent ---------- */
+  /* ---------- Cookie consent ----------
+     Accept: remember the choice + cache game data for 5 minutes.
+     Decline: store nothing at all (and wipe anything stored before). The popup asks again next visit.
+     The site never sets real cookies; this covers browser storage only. */
   const CONSENT_KEY = "soggytoast_consent";
   const consentEl = $("#consent");
+  let declinedThisVisit = false;
+
   const getConsent = () => {
     try {
       return localStorage.getItem(CONSENT_KEY);
@@ -97,35 +102,56 @@
       return null;
     }
   };
-  const hasConsent = () => getConsent() === "accepted";
+  const hasConsent = () => !declinedThisVisit && getConsent() === "accepted";
+
+  // Removes every key this site (or any older version of it) has ever stored.
+  const clearSiteStorage = () => {
+    for (const store of ["localStorage", "sessionStorage"]) {
+      try {
+        const s = window[store];
+        Object.keys(s)
+          .filter((k) => k.startsWith("soggytoast_"))
+          .forEach((k) => s.removeItem(k));
+      } catch {}
+    }
+  };
+
   const showConsent = () => {
+    if (!consentEl) return;
     consentEl.hidden = false;
     requestAnimationFrame(() => consentEl.classList.add("is-open"));
   };
-  const setConsent = (value) => {
-    try {
-      localStorage.setItem(CONSENT_KEY, value);
-    } catch {}
-    if (value === "accepted") {
-      if (lastGames.length) writeCache(lastGames);
-    } else {
-      try {
-        sessionStorage.removeItem(CACHE_KEY);
-      } catch {}
-    }
+  const hideConsent = () => {
+    if (!consentEl) return;
     consentEl.classList.remove("is-open");
     setTimeout(() => (consentEl.hidden = true), 300);
   };
-  $("#consentAccept").addEventListener("click", () => setConsent("accepted"));
-  $("#consentDecline").addEventListener("click", () => setConsent("declined"));
-  $("#cookieSettings").addEventListener("click", showConsent);
-  if (!getConsent()) setTimeout(showConsent, 800);
+
+  $("#consentAccept")?.addEventListener("click", () => {
+    declinedThisVisit = false;
+    try {
+      localStorage.setItem(CONSENT_KEY, "accepted");
+    } catch {}
+    if (lastGames.length) writeCache(lastGames);
+    hideConsent();
+  });
+  $("#consentDecline")?.addEventListener("click", () => {
+    declinedThisVisit = true;
+    clearSiteStorage();
+    hideConsent();
+  });
+  $("#cookieSettings")?.addEventListener("click", showConsent);
+
+  if (getConsent() !== "accepted") {
+    clearSiteStorage(); // no consent yet: make sure nothing is left over from older versions
+    setTimeout(showConsent, 800);
+  }
 
   /* ---------- Games (live from Roblox via RoProxy) ---------- */
   const showcase = $("#showcase");
   const moreGames = $("#moreGames");
   const ids = (site.games || []).map(String);
-  const CACHE_KEY = "soggytoast_games_v3";
+  const CACHE_KEY = "soggytoast_games_v4";
   const CACHE_TTL = 5 * 60 * 1000;
   let lastGames = [];
 
@@ -145,19 +171,32 @@
     } catch {}
   };
 
-  // One request for all game details + one for all thumbnails, in parallel.
+  // RoProxy is shared by lots of sites, so it sometimes answers 429 (too many requests) or errors briefly.
+  // Retry with a growing delay before giving up.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fetchData = async (url, attempts = 5) => {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) return (await res.json()).data || [];
+        if (res.status < 500 && res.status !== 429) break; // a real error, retrying won't help
+      } catch {}
+      if (i < attempts - 1) await sleep(500 * 2 ** i + Math.random() * 300);
+    }
+    throw new Error(`Failed to load ${url}`);
+  };
+
+  // Game details, square icons (cards) and wide thumbnails (hero background): 3 requests in parallel.
   const fetchGames = async () => {
     if (!ids.length) return [];
     const q = ids.join(",");
     try {
-      const [gamesRes, thumbsRes] = await Promise.all([
-        fetch(`https://games.roproxy.com/v1/games?universeIds=${q}`),
-        fetch(`https://thumbnails.roproxy.com/v1/games/multiget/thumbnails?universeIds=${q}&countPerUniverse=1&size=768x432&format=Png&isCircular=false`).catch(() => null),
+      const [games, icons, thumbs] = await Promise.all([
+        fetchData(`https://games.roproxy.com/v1/games?universeIds=${q}`),
+        fetchData(`https://thumbnails.roproxy.com/v1/games/icons?universeIds=${q}&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false`).catch(() => []),
+        fetchData(`https://thumbnails.roproxy.com/v1/games/multiget/thumbnails?universeIds=${q}&countPerUniverse=1&size=768x432&format=Png&isCircular=false`).catch(() => []),
       ]);
-      if (!gamesRes.ok) throw new Error(gamesRes.status);
-
-      const games = (await gamesRes.json()).data || [];
-      const thumbs = thumbsRes?.ok ? (await thumbsRes.json()).data || [] : [];
+      const iconFor = (id) => icons.find((t) => String(t.targetId) === String(id))?.imageUrl || "";
       const thumbFor = (id) => thumbs.find((t) => String(t.universeId) === String(id))?.thumbnails?.[0]?.imageUrl || "";
       const verified = site.verifiedCreators || [];
 
@@ -166,6 +205,7 @@
         .map((g) => ({
           name: g.name || "Untitled game",
           description: g.description || "",
+          icon: iconFor(g.id),
           thumbnail: thumbFor(g.id),
           placeId: g.rootPlaceId || null,
           creator: g.creator?.name || "",
@@ -183,7 +223,8 @@
     const url = g.placeId ? `https://www.roblox.com/games/${g.placeId}` : "";
     const tag = url ? "a" : "div";
     const attrs = url ? `href="${esc(url)}" target="_blank" rel="noopener"` : "";
-    const img = g.thumbnail ? `<img src="${esc(g.thumbnail)}" alt="" loading="lazy" onerror="this.remove()" />` : "";
+    const src = g.icon || g.thumbnail;
+    const img = src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()" />` : "";
     return `
       <${tag} class="game reveal ${extraClass} d${(i % 3) + 1}" ${attrs}>
         <div class="game-media">
@@ -226,7 +267,7 @@
     showcase.innerHTML = sorted.slice(0, 3).map((g, i) => card(g, i, `t${i + 1}`)).join("");
     moreGames.innerHTML = sorted.slice(3).map((g, i) => card(g, i)).join("");
     updateLiveStats(sorted);
-    startHeroSlideshow(sorted.map((g) => g.thumbnail).filter(Boolean));
+    startHeroSlideshow(sorted.map((g) => g.thumbnail || g.icon).filter(Boolean));
     observe(showcase);
     observe(moreGames);
   };

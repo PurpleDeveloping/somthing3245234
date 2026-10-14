@@ -22,7 +22,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <!-- Bump ?v= on all three files whenever you push changes, so browsers never mix old and new files -->
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
   <!-- Header -->
@@ -155,8 +156,9 @@
   <div class="consent" id="consent" role="dialog" aria-labelledby="consentTitle" aria-describedby="consentText" hidden>
     <h2 class="consent-title" id="consentTitle">Cookies &amp; storage</h2>
     <p class="consent-text" id="consentText">
-      We store a small amount of data in your browser to remember your choice and to cache live game stats from Roblox,
-      so the site loads faster. No tracking, no ads. Games still load if you decline.
+      If you accept, we keep live game stats in your browser for 5 minutes so the site loads faster, and remember
+      your choice. If you decline, nothing is stored and we'll ask again next visit. No tracking, no ads, and games
+      load either way.
     </p>
     <div class="consent-actions">
       <button class="btn btn-outline btn-sm" id="consentDecline" type="button">Decline</button>
@@ -164,7 +166,7 @@
     </div>
   </div>
 
-  <script src="data.js"></script>
-  <script src="script.js" defer></script>
+  <script src="data.js?v=5"></script>
+  <script src="script.js?v=5" defer></script>
 </body>
 </html>
