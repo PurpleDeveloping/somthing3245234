@@ -18,7 +18,7 @@
   const ICONS = {
     user: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-5.33 0-8 2.67-8 5v1h16v-1c0-2.33-2.67-5-8-5Z"/></svg>',
     eye: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.1 1.5 12c1.2 2.9 5 7 10.5 7s9.3-4.1 10.5-7C21.3 9.1 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/></svg>',
-    verified: '<svg class="verified" viewBox="0 0 24 24" aria-label="Verified"><path fill="#5200FF" d="m12 1 2.6 2.2 3.4-.3.9 3.3 3 1.7-1.2 3.1 1.2 3.1-3 1.7-.9 3.3-3.4-.3L12 23l-2.6-2.2-3.4.3-.9-3.3-3-1.7L3.3 12 2.1 8.9l3-1.7.9-3.3 3.4.3z"/><path fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="m7.5 12.2 3 3 6-6.2"/></svg>',
+    verified: '<img class="verified" src="assets/VerifiedIcon.png" alt="Verified" title="Verified" width="16" height="16" />',
   };
 
   /* ---------- Static bits ---------- */

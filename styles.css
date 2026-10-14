@@ -273,6 +273,9 @@ a.game:hover .game-media img { transform: scale(1.06); }
 .game-title { font-size: 24px; font-weight: 800; color: var(--white); }
 .game-creator { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.75); }
 .verified { width: 16px; height: 16px; flex: none; }
+/* The badge sits inside the card image area, so undo the full-size cover styling meant for the game icon */
+.game-media img.verified,
+a.game:hover .game-media img.verified { position: static; width: 16px; height: 16px; object-fit: contain; transform: none; }
 .game-desc { margin-top: 20px; padding: 0 6px; font-size: 15px; color: var(--muted); }
 
 .game.is-loading .game-media::after {
