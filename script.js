@@ -87,14 +87,51 @@
     }, 7000);
   };
 
+  /* ---------- Cookie consent ---------- */
+  const CONSENT_KEY = "soggytoast_consent";
+  const consentEl = $("#consent");
+  const getConsent = () => {
+    try {
+      return localStorage.getItem(CONSENT_KEY);
+    } catch {
+      return null;
+    }
+  };
+  const hasConsent = () => getConsent() === "accepted";
+  const showConsent = () => {
+    consentEl.hidden = false;
+    requestAnimationFrame(() => consentEl.classList.add("is-open"));
+  };
+  const setConsent = (value) => {
+    try {
+      localStorage.setItem(CONSENT_KEY, value);
+    } catch {}
+    if (value === "accepted") {
+      if (lastGames.length) writeCache(lastGames);
+    } else {
+      try {
+        sessionStorage.removeItem(CACHE_KEY);
+      } catch {}
+    }
+    consentEl.classList.remove("is-open");
+    setTimeout(() => (consentEl.hidden = true), 300);
+  };
+  $("#consentAccept").addEventListener("click", () => setConsent("accepted"));
+  $("#consentDecline").addEventListener("click", () => setConsent("declined"));
+  $("#cookieSettings").addEventListener("click", showConsent);
+  if (!getConsent()) setTimeout(showConsent, 800);
+
   /* ---------- Games (live from Roblox via RoProxy) ---------- */
   const showcase = $("#showcase");
   const moreGames = $("#moreGames");
   const ids = (site.games || []).map(String);
   const CACHE_KEY = "soggytoast_games_v3";
   const CACHE_TTL = 5 * 60 * 1000;
+  let lastGames = [];
 
+  // The game cache is only used when the visitor has accepted storage.
   const readCache = () => {
+    if (!hasConsent()) return null;
     try {
       const c = JSON.parse(sessionStorage.getItem(CACHE_KEY));
       if (c && Date.now() - c.t < CACHE_TTL && c.ids === ids.join()) return c.games;
@@ -102,6 +139,7 @@
     return null;
   };
   const writeCache = (games) => {
+    if (!hasConsent()) return;
     try {
       sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), ids: ids.join(), games }));
     } catch {}
@@ -183,6 +221,7 @@
       showcase.innerHTML = `<p class="games-empty">Couldn't load games right now. <a class="nav-link" href="${esc(site.links.robloxGroup)}" target="_blank" rel="noopener">See them on Roblox ↗</a></p>`;
       return;
     }
+    lastGames = games;
     const sorted = [...games].sort((a, b) => b.visits - a.visits);
     showcase.innerHTML = sorted.slice(0, 3).map((g, i) => card(g, i, `t${i + 1}`)).join("");
     moreGames.innerHTML = sorted.slice(3).map((g, i) => card(g, i)).join("");

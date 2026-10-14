@@ -96,7 +96,7 @@ p { margin: 0; }
 .btn:hover { transform: scale(1.05); }
 .btn-primary { background: var(--purple); color: var(--white); }
 .btn-primary:hover { background: var(--purple-hover); }
-.btn-outline { border-color: var(--white); color: var(--white); }
+.btn-outline { border-color: var(--white); color: var(--white); background: transparent; }
 .btn-outline:hover { background: var(--white); color: var(--black); }
 .btn-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 36px; }
 
@@ -361,6 +361,41 @@ a.game:hover .game-media img { transform: scale(1.06); }
   color: var(--dim);
 }
 
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--text); }
+
+/* ---------- Cookie consent ---------- */
+.consent {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 60;
+  width: min(420px, calc(100% - 32px));
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(17, 17, 17, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.consent.is-open { opacity: 1; transform: none; }
+.consent-title { font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--white); }
+.consent-text { margin-top: 8px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+.consent-actions { display: flex; gap: 10px; margin-top: 20px; }
+.consent-actions .btn { flex: 1; }
+.btn-sm { height: 44px; padding: 0 20px; font-size: 15px; }
+
 /* ---------- Reveal on scroll ---------- */
 .reveal { opacity: 0; transform: translateY(48px); transition: opacity 1s ease, transform 1s ease; }
 .reveal.is-visible { opacity: 1; transform: none; }
@@ -432,4 +467,6 @@ a.game:hover .game-media img { transform: scale(1.06); }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
   .footer-brand { grid-column: 1 / -1; }
   .footer-bottom { flex-direction: column; }
+  .consent { left: 16px; bottom: 16px; padding: 20px; }
+  .consent-actions .btn { width: auto; max-width: none; }
 }
