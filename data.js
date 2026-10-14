@@ -1,10 +1,16 @@
 /*
  * SoggyToast site content: edit this file to update the site.
  *
- * The game list lives server-side in functions/api/games.js (so it isn't visible in the page source).
+ * Games are loaded live from Roblox (via RoProxy, a public Roblox API mirror that browsers are allowed to call).
+ * Only the universe IDs listed in `games` are shown. To add a game, add its universe ID.
  * The 3 most-visited games get the tilted showcase; any extras appear in a grid below it.
  */
 window.SITE = {
+  games: ["8581899016", "7201268162", "9533030530"],
+
+  // Creators shown with a verified badge even if Roblox doesn't flag them.
+  verifiedCreators: ["Secret Base Community", "Shopping Drift"],
+
   // Optional looping hero video (e.g. "assets/background.mp4").
   // Leave empty to use a slow crossfade of your game thumbnails instead.
   heroVideo: "",

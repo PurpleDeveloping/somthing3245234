@@ -87,30 +87,54 @@
     }, 7000);
   };
 
-  /* ---------- Games (from our own /api/games endpoint) ---------- */
+  /* ---------- Games (live from Roblox via RoProxy) ---------- */
   const showcase = $("#showcase");
   const moreGames = $("#moreGames");
-  const CACHE_KEY = "soggytoast_games_v2";
+  const ids = (site.games || []).map(String);
+  const CACHE_KEY = "soggytoast_games_v3";
   const CACHE_TTL = 5 * 60 * 1000;
 
   const readCache = () => {
     try {
       const c = JSON.parse(sessionStorage.getItem(CACHE_KEY));
-      if (c && Date.now() - c.t < CACHE_TTL) return c.games;
+      if (c && Date.now() - c.t < CACHE_TTL && c.ids === ids.join()) return c.games;
     } catch {}
     return null;
   };
   const writeCache = (games) => {
     try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), games }));
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), ids: ids.join(), games }));
     } catch {}
   };
 
+  // One request for all game details + one for all thumbnails, in parallel.
   const fetchGames = async () => {
+    if (!ids.length) return [];
+    const q = ids.join(",");
     try {
-      const res = await fetch("/api/games");
-      if (!res.ok) throw new Error(res.status);
-      return ((await res.json()).games || []).map((g) => ({ ...g, name: g.name || "Untitled game" }));
+      const [gamesRes, thumbsRes] = await Promise.all([
+        fetch(`https://games.roproxy.com/v1/games?universeIds=${q}`),
+        fetch(`https://thumbnails.roproxy.com/v1/games/multiget/thumbnails?universeIds=${q}&countPerUniverse=1&size=768x432&format=Png&isCircular=false`).catch(() => null),
+      ]);
+      if (!gamesRes.ok) throw new Error(gamesRes.status);
+
+      const games = (await gamesRes.json()).data || [];
+      const thumbs = thumbsRes?.ok ? (await thumbsRes.json()).data || [] : [];
+      const thumbFor = (id) => thumbs.find((t) => String(t.universeId) === String(id))?.thumbnails?.[0]?.imageUrl || "";
+      const verified = site.verifiedCreators || [];
+
+      return games
+        .filter((g) => ids.includes(String(g.id)))
+        .map((g) => ({
+          name: g.name || "Untitled game",
+          description: g.description || "",
+          thumbnail: thumbFor(g.id),
+          placeId: g.rootPlaceId || null,
+          creator: g.creator?.name || "",
+          verified: !!g.creator?.hasVerifiedBadge || verified.includes(g.creator?.name),
+          playing: g.playing || 0,
+          visits: g.visits || 0,
+        }));
     } catch (e) {
       console.warn("Failed to load games", e);
       return [];
@@ -156,11 +180,7 @@
 
   const render = (games) => {
     if (!games.length) {
-      const local = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
-      if (local) console.info("Games come from /api/games, which only runs on Cloudflare Pages (or `npx wrangler pages dev .`).");
-      showcase.innerHTML = local
-        ? `<p class="games-empty">Games load from <code>/api/games</code>, which only runs once the site is on Cloudflare Pages.</p>`
-        : `<p class="games-empty">Couldn't load games right now. <a class="nav-link" href="${esc(site.links.robloxGroup)}" target="_blank" rel="noopener">See them on Roblox ↗</a></p>`;
+      showcase.innerHTML = `<p class="games-empty">Couldn't load games right now. <a class="nav-link" href="${esc(site.links.robloxGroup)}" target="_blank" rel="noopener">See them on Roblox ↗</a></p>`;
       return;
     }
     const sorted = [...games].sort((a, b) => b.visits - a.visits);
