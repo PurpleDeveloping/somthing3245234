@@ -288,6 +288,116 @@ a.game:hover .game-media img.verified { position: static; width: 16px; height: 1
 }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
+/* ---------- Groups ---------- */
+.section-groups { background: var(--bg-2); }
+.groups-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 64px; }
+.group {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.group.reveal.is-visible { transition: opacity 1s ease, transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease; }
+a.group:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.9);
+}
+.group-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  padding: 36px 20px 28px;
+  text-align: center;
+}
+
+/* Blurred banner background (only on groups that have a banner) */
+.group-bg {
+  position: absolute;
+  inset: -24px;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px) saturate(1.4);
+  opacity: 0.7;
+  transform: scale(1.05);
+  transition: filter 0.5s ease, opacity 0.5s ease, transform 0.6s ease;
+}
+.group.has-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.35) 60%),
+    linear-gradient(180deg, rgba(10, 10, 10, 0.25) 0%, rgba(10, 10, 10, 0.55) 55%, rgba(10, 10, 10, 0.9) 100%);
+}
+.group.has-banner { border-color: rgba(255, 255, 255, 0.1); }
+a.group.has-banner:hover .group-bg { filter: blur(10px) saturate(1.5); opacity: 0.9; transform: scale(1.12); }
+.group.has-banner .group-meta { color: rgba(255, 255, 255, 0.75); }
+.group.has-banner .group-icon { box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.95), 0 0 0 2px rgba(255, 255, 255, 0.12); }
+
+.group-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, #2a2a2a, #1c1c1c 70%);
+  box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  font-family: var(--font-heading);
+  font-size: 48px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.15);
+  transition: transform 0.35s ease;
+}
+a.group:hover .group-icon { transform: scale(1.06) rotate(-2deg); }
+.group-icon img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.group-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 22px;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+}
+.group-meta { min-height: 1.6em; margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.group-link {
+  margin-top: auto;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--white);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+.group-meta + .group-link { margin-top: 18px; }
+a.group:hover .group-link { background: var(--white); color: var(--black); }
+.group-link .arrow { display: inline-block; transition: transform 0.3s ease; }
+a.group:hover .group-link .arrow { transform: translate(3px, -3px); }
+.group.is-loading { min-height: 250px; }
+.group.is-loading .group-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.06) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
 /* ---------- Numbers ---------- */
 .numbers {
   display: grid;
@@ -418,6 +528,7 @@ a.game:hover .game-media img.verified { position: static; width: 16px; height: 1
 /* ---------- Responsive ---------- */
 @media (max-width: 960px) {
   .showcase, .more-games { grid-template-columns: repeat(2, 1fr); }
+  .groups-grid { grid-template-columns: repeat(2, 1fr); }
   .game.t2 { margin-top: 0; }
   .numbers { grid-template-columns: repeat(2, 1fr); }
   .number:nth-child(3) { border-left: none; }
@@ -463,6 +574,11 @@ a.game:hover .game-media img.verified { position: static; width: 16px; height: 1
   .game.t2 { --rot: 1.5deg; }
   .game.t3 { --rot: -1.5deg; }
   .number { padding: 32px 8px; }
+  .groups-grid { gap: 12px; margin-top: 48px; }
+  .group-body { padding: 24px 12px 20px; }
+  .group-link { padding: 7px 14px; font-size: 13px; }
+  .group-icon { width: 88px; height: 88px; border-radius: 20px; }
+  .group-name { font-size: 17px; }
   .about-copy { margin-top: 48px; }
   .community { padding: 64px 20px; border-radius: 24px; }
   .btn { width: 100%; max-width: 320px; }

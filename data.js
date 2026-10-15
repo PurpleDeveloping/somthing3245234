@@ -8,6 +8,18 @@
 window.SITE = {
   games: ["8581899016", "7201268162", "9533030530"],
 
+  // Other Roblox groups owned by the studio, shown in the "Our Groups" section (in this order).
+  groups: ["100669520", "36019774", "568026169", "1009216994"],
+
+  // Group banner (cover photo) asset IDs, shown blurred behind each group card.
+  // Roblox only exposes these through an API that browsers can't call, so they're listed here by hand.
+  // Leave a group out if it has no banner. If you change a group's banner on Roblox, update its ID here.
+  groupBanners: {
+    "36019774": "79474561548873", // BrainSpark Studios
+    "568026169": "129020424578072", // Cntrl_Alt_Del
+    "1009216994": "82256939546147", // Last Minute Fix
+  },
+
   // Creators shown with a verified badge even if Roblox doesn't flag them.
   verifiedCreators: ["Secret Base Community", "Shopping Drift"],
 

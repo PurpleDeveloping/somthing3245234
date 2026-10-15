@@ -133,6 +133,7 @@
       localStorage.setItem(CONSENT_KEY, "accepted");
     } catch {}
     if (lastGames.length) writeCache(lastGames);
+    if (lastGroups.length) cacheSet(GROUPS_KEY, groupsSig, lastGroups);
     hideConsent();
   });
   $("#consentDecline")?.addEventListener("click", () => {
@@ -151,40 +152,44 @@
   const showcase = $("#showcase");
   const moreGames = $("#moreGames");
   const ids = (site.games || []).map(String);
-  const CACHE_KEY = "soggytoast_games_v4";
+  const CACHE_KEY = "soggytoast_games_v5";
   const CACHE_TTL = 5 * 60 * 1000;
   let lastGames = [];
 
-  // The game cache is only used when the visitor has accepted storage.
-  const readCache = () => {
+  // Caches are only used when the visitor has accepted storage.
+  // `sig` is the list of IDs the data was fetched for, so editing data.js invalidates the cache.
+  const cacheGet = (key, sig) => {
     if (!hasConsent()) return null;
     try {
-      const c = JSON.parse(sessionStorage.getItem(CACHE_KEY));
-      if (c && Date.now() - c.t < CACHE_TTL && c.ids === ids.join()) return c.games;
+      const c = JSON.parse(sessionStorage.getItem(key));
+      if (c && Date.now() - c.t < CACHE_TTL && c.sig === sig) return c.data;
     } catch {}
     return null;
   };
-  const writeCache = (games) => {
+  const cacheSet = (key, sig, data) => {
     if (!hasConsent()) return;
     try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), ids: ids.join(), games }));
+      sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), sig, data }));
     } catch {}
   };
+  const readCache = () => cacheGet(CACHE_KEY, ids.join());
+  const writeCache = (games) => cacheSet(CACHE_KEY, ids.join(), games);
 
   // RoProxy is shared by lots of sites, so it sometimes answers 429 (too many requests) or errors briefly.
   // Retry with a growing delay before giving up.
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const fetchData = async (url, attempts = 5) => {
+  const fetchJSON = async (url, attempts = 5) => {
     for (let i = 0; i < attempts; i++) {
       try {
         const res = await fetch(url);
-        if (res.ok) return (await res.json()).data || [];
+        if (res.ok) return await res.json();
         if (res.status < 500 && res.status !== 429) break; // a real error, retrying won't help
       } catch {}
       if (i < attempts - 1) await sleep(500 * 2 ** i + Math.random() * 300);
     }
     throw new Error(`Failed to load ${url}`);
   };
+  const fetchData = (url, attempts) => fetchJSON(url, attempts).then((d) => d.data || []);
 
   // Game details, square icons (cards) and wide thumbnails (hero background): 3 requests in parallel.
   const fetchGames = async () => {
@@ -282,6 +287,99 @@
     render(games);
   };
 
+  /* ---------- Groups (live from Roblox via RoProxy) ---------- */
+  const groupsSection = $("#groups");
+  const groupsGrid = $("#groupsGrid");
+  const groupIds = (site.groups || []).map(String);
+  const GROUPS_KEY = "soggytoast_groups_v2";
+  const groupsSig = groupIds.join() + JSON.stringify(site.groupBanners || {}); // changing IDs or banners refreshes the cache
+  let lastGroups = [];
+
+  // RoProxy rate-limits each visitor, so groups use as few requests as possible:
+  // names + icons + banner images (1 request each) now, member counts later one at a time (see fillMemberCounts).
+  const fetchGroups = async () => {
+    const q = groupIds.join(",");
+    const bannerIds = groupIds.map((id) => site.groupBanners?.[id]).filter(Boolean);
+    try {
+      const [info, icons, banners] = await Promise.all([
+        fetchData(`https://groups.roproxy.com/v2/groups?groupIds=${q}`),
+        fetchData(`https://thumbnails.roproxy.com/v1/groups/icons?groupIds=${q}&size=420x420&format=Png&isCircular=false`).catch(() => []),
+        bannerIds.length
+          ? fetchData(`https://thumbnails.roproxy.com/v1/assets?assetIds=${bannerIds.join(",")}&size=768x432&format=Png&isCircular=false`).catch(() => [])
+          : [],
+      ]);
+      const byId = new Map(info.map((g) => [String(g.id), g]));
+      const bannerFor = (id) => banners.find((b) => String(b.targetId) === String(site.groupBanners?.[id]))?.imageUrl || "";
+      return groupIds
+        .filter((id) => byId.has(id))
+        .map((id) => ({
+          id,
+          name: byId.get(id).name || "Roblox group",
+          verified: !!byId.get(id).hasVerifiedBadge,
+          icon: icons.find((t) => String(t.targetId) === id)?.imageUrl || "",
+          banner: bannerFor(id),
+          members: null,
+        }));
+    } catch (e) {
+      console.warn("Failed to load groups", e);
+      return [];
+    }
+  };
+
+  const membersText = (n) => `${fmt(n)} ${n === 1 ? "member" : "members"}`;
+
+  // Member counts are nice-to-have: fetched one by one after everything else, skipped quietly if they fail.
+  const fillMemberCounts = async (groups) => {
+    for (const g of groups) {
+      if (g.members != null) continue;
+      try {
+        const d = await fetchJSON(`https://groups.roproxy.com/v1/groups/${g.id}`, 3);
+        if (d.memberCount == null) continue;
+        g.members = d.memberCount;
+        const el = groupsGrid.querySelector(`[data-members="${g.id}"]`);
+        if (el) el.textContent = membersText(g.members);
+      } catch {}
+    }
+    cacheSet(GROUPS_KEY, groupsSig, groups);
+  };
+
+  const groupCard = (g, i) => `
+    <a class="group reveal d${(i % 4) + 1}${g.banner ? " has-banner" : ""}" href="https://www.roblox.com/groups/${esc(g.id)}" target="_blank" rel="noopener">
+      ${g.banner ? `<div class="group-bg" style="background-image:url('${esc(g.banner)}')" aria-hidden="true"></div>` : ""}
+      <div class="group-body">
+        <div class="group-icon">
+          <span>${esc(g.name.charAt(0))}</span>
+          ${g.icon ? `<img src="${esc(g.icon)}" alt="" loading="lazy" onerror="this.remove()" />` : ""}
+        </div>
+        <h3 class="group-name">${esc(g.name)}${g.verified ? ICONS.verified : ""}</h3>
+        <p class="group-meta" data-members="${esc(g.id)}">${g.members != null ? membersText(g.members) : ""}</p>
+        <span class="group-link">View group <span class="arrow">↗</span></span>
+      </div>
+    </a>`;
+
+  const renderGroups = (groups) => {
+    if (!groups.length) {
+      groupsSection?.remove(); // nothing to show: hide the section rather than show an error
+      return;
+    }
+    lastGroups = groups;
+    groupsGrid.innerHTML = groups.map(groupCard).join("");
+    observe(groupsGrid);
+  };
+
+  const loadGroups = async () => {
+    if (!groupsGrid || !groupIds.length) return renderGroups([]);
+    const cached = cacheGet(GROUPS_KEY, groupsSig);
+    if (cached) return renderGroups(cached);
+
+    groupsGrid.innerHTML = groupIds
+      .map(() => `<div class="group is-loading" aria-hidden="true"><div class="group-icon"></div></div>`)
+      .join("");
+    const groups = await fetchGroups();
+    renderGroups(groups);
+    if (groups.length) fillMemberCounts(groups);
+  };
+
   /* ---------- Header ---------- */
   const header = $("#header");
   const onScroll = () => header.classList.toggle("is-scrolled", window.scrollY > 10);
@@ -298,5 +396,6 @@
   $("#nav").addEventListener("click", (e) => e.target.closest("a") && setMenu(false));
 
   observe();
-  loadGames();
+  // Games first; groups only start once the games are done, so they never compete for RoProxy's rate limit.
+  loadGames().finally(loadGroups);
 })();
